@@ -1,9 +1,0 @@
-mysql_database:
-  database_username: 'jackyfu'
-  database_password: 'data8756'
-  database_ip: 'sg2nlmysql29plsk.secureserver.net'
-  database_name: 'Bigdata'
-dcard_api:
-  base_url: 'https://www.dcard.tw/service/api/v2'
-  popular: 'false'
-  max_limit: '100'
