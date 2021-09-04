@@ -54,10 +54,10 @@ class myBertModel():
         model = Model([x1_in, x2_in], p)
         model.compile(
             loss='binary_crossentropy',
-            optimizer=Adam(1e-5), # 用足够小的学习率
+            optimizer=Adam(1e-5),
             metrics=['accuracy']
         )
-        # model.summary()
+        model.summary()
         return model
 
 
