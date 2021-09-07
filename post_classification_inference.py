@@ -17,12 +17,13 @@ import numpy as np
 import pandas as pd
 from keras.models import load_model
 from keras_bert import get_custom_objects
+from utils import mysqlDatabase
 from myBertTools import myBertModel, myTokenizer
 from tqdm._tqdm_notebook import tqdm_notebook
 tqdm_notebook.pandas()
 
 
-def class_predict_fuc(text):
+def single_label_predict(text):
     text = str(text)[:100]
     x1, x2 = MyTokenizer.encode(first=text)
     x1, x2 = np.array([x1]), np.array([x2])
@@ -32,24 +33,75 @@ def class_predict_fuc(text):
     return label, percentage
 
 
+def multi_label_predict(text, threshold):
+    text = str(text)[:100]
+    x1, x2 = MyTokenizer.encode(first=text)
+    x1, x2 = np.array([x1]), np.array([x2])
+    outcome = model.predict([x1, x2])
+    multi_label_set = []
+    label_idx = np.where(outcome >= threshold)[1]
+    for idx in label_idx:
+        multi_label_set.append(label_dic[idx])
+    return multi_label_set
+
+
 if __name__ == '__main__':
+    # set parameters
+    threshold = 0.5
     pretrained_path = '/Users/jackyfu/Desktop/hwf87_git/bert_wwm/'
     config_path = os.path.join(pretrained_path, 'bert_config.json')
     checkpoint_path = os.path.join(pretrained_path, 'bert_model.ckpt')
     vocab_path = os.path.join(pretrained_path, 'vocab.txt')
-    model_path = '/Users/jackyfu/Desktop/hwf87_git/Dcard_post_classification/model_output/dcard_post_cls_bert.h5'
-    dic_path = '/Users/jackyfu/Desktop/hwf87_git/Dcard_post_classification/model_output/dcard_cate_label_dic.npy'
+    model_path = '/Users/jackyfu/Desktop/hwf87_git/Dcard_post_classification/model_output/dcard_post_multi_cls_bert.h5'
+    dic_path = '/Users/jackyfu/Desktop/hwf87_git/Dcard_post_classification/model_output/dcard_cate_multi_label_dic.npy'
+    
     ## Load Model
     MyBertModel = myBertModel(pretrained_path, config_path, checkpoint_path, vocab_path)
     token_dict = MyBertModel.get_token_dict()
     MyTokenizer = myTokenizer(token_dict)
     model = load_model(model_path, custom_objects=get_custom_objects())
     label_dic = np.load(dic_path, allow_pickle=True).item()
-    ## predict
-    text = '''關於80人以上遠距的信 真是疑問滿滿… 
-    1.所以第一週遠距的課要怎麼加簽？
-    2.是選課上限80以上的就確定第一週遠距，上限80以下第一週不遠距嗎？還是看選課人數？
-    3.那如果看選課人數
+
+    ## predict sample
+    text = '''請益：愛你的人vs你愛的人
+    如題，小女子今年30，已婚，和先生結婚兩年了，我從大學時期就一直暗戀我先生，
+    他是我的學長，當時他原本還有一個要好的女朋友，但是被我從中作梗破壞了，
+    後來發生了一些事，總算讓我帶球嫁給了先生，但是婚後先生
     '''
-    label, confidance = class_predict_fuc(text)
+
+    # single_label_predict
+    label, confidance = single_label_predict(text)
     print('看板預測: ', label, ' 信心水準: ', confidance)
+
+    # multi_label_predict
+    multi_label_set = multi_label_predict(text, threshold)
+    print('predict multi-label set: ', multi_label_set)
+
+
+# ## Performance testing
+# import yaml
+# with open('config.yml', 'r') as stream:
+#         myconfig = yaml.load(stream, Loader=yaml.CLoader)
+# database_username = myconfig['mysql_database']['database_username']
+# database_password = myconfig['mysql_database']['database_password']
+# database_ip       = myconfig['mysql_database']['database_ip']
+# database_name     = myconfig['mysql_database']['database_name']
+# MysqlDatabase = mysqlDatabase(database_username, database_password, database_ip, database_name)
+
+# sql = '''
+# SELECT df.name forums_name, dp.*
+# FROM Bigdata.dcard_posts dp
+# left join Bigdata.dcard_forums df on dp.forumid = df.id
+# WHERE 1=1
+# '''
+# df = MysqlDatabase.select_table(sql)
+
+# df['text'] = df['title'] + ' ' + df['excerpt'] + ' ' + df['topics']
+# df_test = df[df.createdAt >= '2021-09-06'][['forums_name', 'id', 'title', 'excerpt', 'topics', 'text']]
+# threshold = 0.5
+# df_test['predict_forums_name'] = df_test['text'].progress_apply(multi_label_predict, args=(threshold, ))
+
+# import xlsxwriter
+# df_test.to_excel('sample_output.xlsx', engine='xlsxwriter', index=False)
+
+
